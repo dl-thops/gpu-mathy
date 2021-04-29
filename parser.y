@@ -6,6 +6,7 @@
     #include <string>
     #include <vector>
     #include <algorithm>
+    #include <map>
     using namespace::std;
     void yyerror(char *);
 	int yylex(void);
@@ -22,11 +23,13 @@
         
         Node(string name){
             this->name = name;
+            this->ival = 0;
         }
         
         Node(string name, vector<Node*> &childs){
             this->name = name;
             this->children = childs;
+            this->ival = 0;
         }
 
         void print_tree(){
@@ -59,7 +62,7 @@ program: statements {
 }
 ;
 
-statements: statement statements {
+statements: statements statement {
     vN v{$1,$2};
     $$ = new Node("statements",v);
 }
@@ -133,6 +136,7 @@ intermediate_expr: OPERATOR {
 expression: term {
     vN v{$1};
     $$ = new Node("expression",v);
+    $$->ival = $1->ival;
 }
           | term OPERATOR {
                 $2 = new Node("OPERATOR");
@@ -170,15 +174,16 @@ term: identifier {
     | number {
     vN v{$1};
     $$ = new Node("term",v);
+    $$->ival = $1->ival;
 }
 ;
 
 forall_stmt: FORALL LPAR IDENTIFIER {
     $3 = new Node("IDENTIFIER");
     $3->id = string(mytext);
-} RPAR WHERE bound LCURL NEWLINE {
+} RPAR WHERE bound LCURL NEWLINE statements RCURL{
     vN v{new Node("FORALL"),new Node("LPAR"),$3, new Node("RPAR"), new Node("WHERE"), $7, 
-        new Node("LCURL"), new Node("NEWLINE")};
+        new Node("LCURL"), new Node("NEWLINE"),$10, new Node("RCURL")};
     $$ = new Node("forall_stmt",v);
 }
 ;
@@ -204,6 +209,7 @@ offset_type: INTCONST {
     $1->ival = stoi(mytext);
     vN v{$1};
     $$ = new Node("offset_type",v);
+    $$->ival = $1->ival;
 }
            | IDENTIFIER {
     $1 = new Node("IDENTIFIER");
@@ -218,6 +224,7 @@ number: INTCONST {
     $1->ival = stoi(mytext);
     vN v{$1};
     $$ = new Node("number",v);
+    $$->ival = $1->ival;
 }
       | FLOATCONST {
     $1 = new Node("FLOATCONST");
@@ -261,9 +268,143 @@ void yyerror(char *s) {
 }
 
 extern FILE *yyin;
+map<string,vector<int>> bounds;
+map<string,pair<int,int>> iter_bounds;
+
+int calcValue(Node* cur)
+{
+    if(cur->children.size()==1)
+    {
+        if(cur->children[0]->children[0]->name=="INTCONST")
+            return cur->children[0]->children[0]->ival;
+        else
+            return iter_bounds[cur->children[0]->children[0]->id].second;
+    }
+    else
+    {
+        int lval = calcValue(cur->children[0]);
+        int mrval,Mrval;
+        if(cur->children[2]->children[0]->name=="INTCONST")
+            Mrval = mrval = cur->children[2]->children[0]->ival;
+        else
+        {
+            mrval = iter_bounds[cur->children[2]->children[0]->id].first;
+            Mrval = iter_bounds[cur->children[2]->children[0]->id].second;
+        }
+        string op = cur->children[1]->id;
+        if(op=="+")
+        {
+            return lval+Mrval;
+        }
+        else if(op=="-")
+        {
+            return lval-mrval;
+        }
+        else if(op=="*")
+        {
+            return lval*Mrval;
+        }
+        else if(op=="/")
+        {
+            return lval/mrval;
+        }
+        else if(op=="%")
+        {
+            return Mrval-1;
+        }
+    }
+}
+
+void addDimensions(string name,Node* cur,vector<int>& dims)
+{
+    if(cur->children.size()==0)
+        return;
+    addDimensions(name,cur->children[0],dims);
+    dims.push_back(calcValue(cur->children[2]));
+    return;
+}
+
+void determineMemory(Node* cur)
+{
+    if(cur->name=="forall_stmt")
+    {
+        string name=cur->children[2]->id;
+        int lv,uv;
+        if(cur->children[5]->children[0]->children[0]->children[0]->name=="number")
+        {
+            lv = cur->children[5]->children[0]->children[0]->children[0]->ival;
+        }
+        else
+        {
+            lv = iter_bounds[cur->children[5]->children[0]->children[0]->children[0]->children[0]->id].first;
+        }
+        if(cur->children[5]->children[4]->children[0]->children[0]->name=="number")
+        {
+            uv = cur->children[5]->children[4]->children[0]->children[0]->ival;
+        }
+        else
+        {
+            uv = iter_bounds[cur->children[5]->children[4]->children[0]->children[0]->children[0]->id].second;
+        }
+        iter_bounds[name] = make_pair(lv,uv);
+    }
+    if(cur->name == "prod_sum_stmt")
+    {
+        string name=cur->children[5]->children[2]->id;
+        int lv,uv;
+        if(cur->children[5]->children[0]->children[0]->children[0]->name=="number")
+        {
+            lv = cur->children[5]->children[0]->children[0]->children[0]->ival;
+        }
+        else
+        {
+            lv = iter_bounds[cur->children[5]->children[0]->children[0]->children[0]->children[0]->id].first;
+        }
+        if(cur->children[5]->children[4]->children[0]->children[0]->name=="number")
+        {
+            uv = cur->children[5]->children[4]->children[0]->children[0]->ival;
+        }
+        else
+        {
+            uv = iter_bounds[cur->children[5]->children[4]->children[0]->children[0]->children[0]->id].second;
+        }
+        iter_bounds[name] = make_pair(lv,uv);
+    }
+    if(cur->name == "identifier" && cur->children[1]->children.size()>0)
+    {
+        vector<int> dims;
+        addDimensions(cur->children[0]->id,cur->children[1],dims);
+        if(bounds.find(cur->children[0]->id)!=bounds.end())
+        {
+            for(int i=0;i<dims.size();i++)
+            {
+                bounds[cur->children[0]->id][i]=max(bounds[cur->children[0]->id][i],dims[i]);
+            }
+        }
+        else
+        {
+            bounds[cur->children[0]->id]=dims;
+        }
+    }
+    for(auto ch:cur->children)
+    {
+        determineMemory(ch);
+    }
+}
 
 int main(int argc, char *argv[]) {
+    yyin = fopen(argv[1],"r");
     yyparse();
-    root->print_tree();
+    determineMemory(root);
+    for(auto it:bounds)
+    {
+        cout<<it.first<<" ";
+        for(auto j:it.second)
+        {
+            cout<<j<<" ";
+        }
+        cout<<endl;
+    }
+    //root->print_tree();
     return 0;
 }

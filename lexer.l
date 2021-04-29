@@ -14,7 +14,7 @@ FLOATCONST      ([1-9][0-9]*(\.[0-9]+)?)|(0(\.[0-9]+)?)
 
 %%
 
-\\n                           { return NEWLINE; }
+\n                           { return NEWLINE; }
 
 forall                      { return FORALL; }
 
