@@ -7,47 +7,52 @@
     using namespace std;
 %}
 
-FORALL          ( forall | ∀ )
-SIGMA           ( sigma | Σ )
-WHERE           ( where | \| )
-PRODUCT         ( product | Π )
-SQRT            ( sqrt | √ )
 IDENTIFIER      [a-zA-Z_][a-zA-Z0-9_]*
-INTEGERCONST    ( [0-9] )+
+INTCONST    ([0-9])+
 FLOATCONST      ([1-9][0-9]*(\.[0-9]+)?)|(0(\.[0-9]+)?)
 
 
 %%
 
-\\n                           { strcpy(mytext, yytext); return NEWLINE; }
+\\n                           { return NEWLINE; }
 
-{FORALL}                      { strcpy(mytext, yytext); return FORALL; }
+forall                      { return FORALL; }
 
-{WHERE}                       { strcpy(mytext, yytext); return WHERE; }
+∀							{ return FORALL; }
 
-{SIGMA}                       { strcpy(mytext, yytext); return SIGMA; }
+where                       { return WHERE; }
 
-{PRODUCT}                       { strcpy(mytext, yytext); return PRODUCT; }
+\|							{ return WHERE; }
 
-{SQRT}                       { strcpy(mytext, yytext); return SQRT; }
+sigma                       { return SIGMA; }
 
-{IDENTIFIER}                       { strcpy(mytext, yytext); return IDENTIFIER; }
+Σ							{ return SIGMA; }
 
-\{                       { strcpy(mytext, yytext); return LCURL; }
+product                       { return PRODUCT; }
 
-\}                       { strcpy(mytext, yytext); return RCURL; }
+Π							{ return PRODUCT; }
 
-\(                       { strcpy(mytext, yytext); return LPAR; }
+sqrt                       { return SQRT; }
 
-\)                       { strcpy(mytext, yytext); return RPAR; }
+√							{ return SQRT; }
 
-\[                       { strcpy(mytext, yytext); return LSQR; }
+{IDENTIFIER}                 { strcpy(mytext, yytext); return IDENTIFIER; }
 
-\]                       { strcpy(mytext, yytext); return RSQR; }
+\{                       { return LCURL; }
 
-\=                       { strcpy(mytext, yytext); return EQUAL; }
+\}                       { return RCURL; }
 
-{INTEGERCONST}           { strcpy(mytext, yytext); return INTEGERCONST; }
+\(                       { return LPAR; }
+
+\)                       { return RPAR; }
+
+\[                       { return LSQR; }
+
+\]                       { return RSQR; }
+
+\=                       { return EQUAL; }
+
+{INTCONST}           { strcpy(mytext, yytext); return INTCONST; }
 
 {FLOATCONST}             { strcpy(mytext, yytext); return FLOATCONST; }
 
@@ -55,17 +60,18 @@ FLOATCONST      ([1-9][0-9]*(\.[0-9]+)?)|(0(\.[0-9]+)?)
 
 \<\=                     { return LEQ; }
 
-\+                       { return '+'; }
+\+                       { strcpy(mytext, yytext); return OPERATOR; }
 
-\-                       { return '-'; }
+\-                       { strcpy(mytext, yytext); return OPERATOR; }
 
-\*                       { return '*'; }
+\*                       { strcpy(mytext, yytext); return OPERATOR; }
 
-\/                       { return '/'; }
+\/                       { strcpy(mytext, yytext); return OPERATOR; }
 
-\%                       { return '%'; }
+\%                       { strcpy(mytext, yytext); return OPERATOR; }
 
 .                        { ; }
+
 
 %%
 
