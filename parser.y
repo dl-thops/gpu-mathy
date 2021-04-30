@@ -17,6 +17,9 @@
         public:
         string name;
         string id;
+        string code;
+        vector<string> params;
+        int arr_num;
         int ival;
         float fval;
         vector<Node*> children;
@@ -93,6 +96,7 @@ statement: NEWLINE {
 identifier: IDENTIFIER { 
     $1 = new Node("IDENTIFIER");
     $1->id = string(mytext);
+    $1->code = string(mytext);
 } dimensions {
     vN v{ $1, $3};
     $$ = new Node("identifier",v);
@@ -181,6 +185,7 @@ term: identifier {
 forall_stmt: FORALL LPAR IDENTIFIER {
     $3 = new Node("IDENTIFIER");
     $3->id = string(mytext);
+    $3->code = string(mytext);
 } RPAR WHERE bound LCURL NEWLINE statements RCURL{
     vN v{new Node("FORALL"),new Node("LPAR"),$3, new Node("RPAR"), new Node("WHERE"), $7, 
         new Node("LCURL"), new Node("NEWLINE"),$10, new Node("RCURL")};
@@ -207,6 +212,7 @@ control: PRODUCT {
 offset_type: INTCONST {
     $1 = new Node("INTCONST");
     $1->ival = stoi(mytext);
+    $1->code = string(mytext);
     vN v{$1};
     $$ = new Node("offset_type",v);
     $$->ival = $1->ival;
@@ -214,6 +220,7 @@ offset_type: INTCONST {
            | IDENTIFIER {
     $1 = new Node("IDENTIFIER");
     $1->id = string(mytext);
+    $1->code = string(mytext);
     vN v{$1};
     $$ = new Node("offset_type",v);
 }
@@ -222,32 +229,39 @@ offset_type: INTCONST {
 number: INTCONST {
     $1 = new Node("INTCONST");
     $1->ival = stoi(mytext);
+    $1->code = string(mytext);
     vN v{$1};
     $$ = new Node("number",v);
+    $$->code = string(mytext);
     $$->ival = $1->ival;
 }
       | FLOATCONST {
     $1 = new Node("FLOATCONST");
     $1->fval = stof(mytext);
+    $1->code = string(mytext);
     vN v{$1};
     $$ = new Node("number",v);
+    $$->code = string(mytext);
 }
 ;
 
 bound: expression LT IDENTIFIER {
         $3 = new Node("IDENTIFIER");
         $3->id = string(mytext);
+        $3->code = string(mytext);
     } LT expression {
     vN v{$1,new Node("LT"),$3,new Node("LT"),$6};
     $$ = new Node("bound",v);
 }   | expression LT IDENTIFIER {
         $3 = new Node("IDENTIFIER");
+        $3->code = string(mytext);
         $3->id = string(mytext);
     } LEQ expression {
     vN v{$1,new Node("LT"),$3,new Node("LEQ"),$6};
     $$ = new Node("bound",v);
 }   | expression LEQ IDENTIFIER {
         $3 = new Node("IDENTIFIER");
+        $3->code = string(mytext);
         $3->id = string(mytext);
     } LT expression {
     vN v{$1,new Node("LEQ"),$3,new Node("LT"),$6};
@@ -255,6 +269,7 @@ bound: expression LT IDENTIFIER {
 }   | expression LEQ IDENTIFIER {
         $3 = new Node("IDENTIFIER");
         $3->id = string(mytext);
+        $3->code = string(mytext);
     } LEQ expression {
     vN v{$1,new Node("LEQ"),$3,new Node("LEQ"),$6};
     $$ = new Node("bound",v);
@@ -392,18 +407,141 @@ void determineMemory(Node* cur)
     }
 }
 
+vector<string> newkernels;
+map<string,int> temparrs_dims;
+int kernel_num = 0;
+int arr_num = 0;
+
+void prod_sum_coder(Node *cur){
+    for(auto ch:cur->children)prod_sum_coder(ch);
+    if(cur->name == "prod_sum_stmt"){
+        string newkernel = "__global__ void kernel_"+to_string(++kernel_num)+"(){\n";
+        string bound_var_name = cur->children[5]->children[2]->id;
+        string lower_bound = cur->children[5]->children[0]->code;
+        string upper_bound = cur->children[5]->children[4]->code;
+        string lower_comp,upper_comp,lower_bound_,upper_bound_;
+        if(cur->children[5]->children[1]->name == "LT"){
+            lower_comp = " < ";
+            lower_bound_ = "("+lower_bound+"+1)";
+        }
+        else{
+            lower_comp = " <= ";
+            lower_bound_ = lower_bound;
+        }
+        if(cur->children[5]->children[3]->name == "LT"){
+            upper_comp = " < ";
+            upper_bound_ = "("+upper_bound+"-1)";
+        }
+        else{
+            upper_comp = " <= ";
+            upper_bound_ = upper_bound;
+        }
+        newkernel += "\tint "+bound_var_name+" = "+lower_bound_+" + blockDim.x * blockIdx.x + threadIdx.x;\n";
+        newkernel += "\tif( !( "+lower_bound_+"<="+bound_var_name+" ) || !( "
+            +bound_var_name+"<="+upper_bound_+" ) )return;\n";
+        newkernel += "\ttemp_"+to_string(++arr_num)+"["+bound_var_name+"-"+lower_bound_+"] = "+cur->children[2]->code+";\n}\n";
+        newkernels.push_back(newkernel);
+        cur->code = "int thread_count_"+to_string(kernel_num)+" = "+upper_bound_+"-"+lower_bound_+"+1;\n";
+        cur->code += "kernel_"+to_string(kernel_num)+"<<<"+"ceil( 1.0 * thread_count_"+to_string(kernel_num)+"/1024),"+"1024>>>();\n";
+        int uval,lval;
+        if(iter_bounds.find(lower_bound) != iter_bounds.end()){
+            lval = iter_bounds.find(lower_bound)->second.first;
+        }else lval = stoi(lower_bound);
+        if(iter_bounds.find(upper_bound) != iter_bounds.end()){
+            uval = iter_bounds.find(upper_bound)->second.first;
+        }else uval = stoi(upper_bound);
+        temparrs_dims["temp_"+to_string(arr_num)] = uval-lval+2;
+        if(cur->children[0]->children[0]->name == "PROD"){
+            cur->code += "PROD_kernel<<<ceil( 1.0 * thread_count_"+to_string(kernel_num)+"/1024),"+"1024>>>( temp_"+to_string(arr_num)+");\n";
+        }else{
+            cur->code += "SIGMA_kernel<<<ceil( 1.0 * thread_count_"+to_string(kernel_num)+"/1024),"+"1024>>>( temp_"+to_string(arr_num)+");\n";
+        }
+        cur->arr_num = arr_num;
+    }
+    if(cur->name == "IDENTIFIER"){
+        cur->code = cur->id;
+        cur->params.push_back(cur->id);
+    }
+    if(cur->name == "identifier"){
+        cur->code = cur->children[0]->code + cur->children[1]->code;
+        cur->params = cur->children[0]->params;
+        cur->params.insert( cur->params.end(), cur->children[1]->params.begin(), cur->children[1]->params.end());
+    }
+    if(cur->name == "dimensions"){
+        if(cur->children.size() == 4){
+            cur->code = cur->children[0]->code + "[" + cur->children[2]->code + "]";
+            cur->params = cur->children[0]->params;
+            cur->params.insert( cur->params.end(), cur->children[2]->params.begin(), cur->children[2]->params.end());
+        }
+    }
+    if(cur->name == "offset"){
+        if(cur->children.size() == 1){
+            cur->code = cur->children[0]->code;
+            cur->params = cur->children[0]->params;
+        }
+        else{
+            cur->code = cur->children[0]->code + cur->children[1]->id + cur->children[2]->code;
+            cur->params = cur->children[0]->params;
+            cur->params.insert( cur->params.end(), cur->children[2]->params.begin(), cur->children[2]->params.end());
+        }
+    }
+    if(cur->name == "offset_type"){
+        cur->code = cur->children[0]->code;
+        if(cur->children[0]->name == "IDENTIFIER"){
+            cur->params.push_back(cur->children[0]->id);
+        }
+    }
+    if(cur->name == "term"){
+        cur->code = cur->children[0]->code;
+        cur->params = cur->children[0]->params;
+    }
+    if(cur->name == "expression"){
+        if(cur->children.size() == 1 && cur->children[0]->name == "term"){
+            cur->code = cur->children[0]->code;
+            cur->params = cur->children[0]->params;
+        }
+        else if(cur->children.size() == 3 && cur->children[0]->name == "term"){
+            cur->code = cur->children[0]->code + " " + cur->children[1]->id + " " + cur->children[2]->code;
+            cur->params = cur->children[0]->params;
+            cur->params.insert( cur->params.end(), cur->children[2]->params.begin(), cur->children[2]->params.end());
+        }
+        else if(cur->children.size() == 3 && cur->children[0]->name == "identifier"){
+            cur->code = cur->children[0]->code + " = " + cur->children[2]->code + ";\n";
+            cur->params = cur->children[0]->params;
+            cur->params.insert( cur->params.end(), cur->children[2]->params.begin(), cur->children[2]->params.end());
+        }
+        else if(cur->children[0]->name == "SQRT"){
+            cur->code = "sqrt(" + cur->children[2]->code + ")";
+            cur->params = cur->children[2]->params;
+        }
+        else if(cur->children[0]->name == "LPAR"){
+            cur->code = "(" + cur->children[1]->code + ")" + cur->children[3]->code;
+            cur->params = cur->children[1]->params;
+            cur->params.insert( cur->params.end(), cur->children[3]->params.begin(), cur->children[3]->params.end());
+        }
+        else if(cur->children[0]->name == "prod_sum_stmt"){
+            cur->code = "temp_"+to_string(cur->children[0]->arr_num)+"[0]";
+        }
+        else {
+            cur->code = cur->children[0]->code;
+            cur->params = cur->children[0]->params;
+        }
+    }
+    if(cur->name == "intermediate_expr"){
+        if(cur->children.size() == 2){
+            cur->code = cur->children[0]->id + cur->children[1]->code;
+            cur->params = cur->children[1]->params;
+        }
+    }
+}
+
 int main(int argc, char *argv[]) {
     yyin = fopen(argv[1],"r");
     yyparse();
     determineMemory(root);
-    for(auto it:bounds)
-    {
-        cout<<it.first<<" ";
-        for(auto j:it.second)
-        {
-            cout<<j<<" ";
-        }
-        cout<<endl;
+    prod_sum_coder(root);
+    for(auto ch: newkernels){
+        cout<<ch<<endl;
     }
     //root->print_tree();
     return 0;
