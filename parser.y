@@ -18,6 +18,7 @@
         string name;
         string id;
         string code;
+        string precode;
         vector<string> params;
         int arr_num;
         int ival;
@@ -36,7 +37,16 @@
         }
 
         void print_tree(){
-            cout<<this->name<<" ";
+        
+            if(this->name=="prod_sum_stmt")
+            {
+                cout<<this->code<<endl;
+                /*for(auto it:this->params)
+                {
+                    cout<<it<<" ";
+                }   
+                cout<<endl<<endl;*/
+            }
             for( int ii = 0; ii < this->children.size(); ii++)this->children[ii]->print_tree();
         }
     };
@@ -408,14 +418,39 @@ void determineMemory(Node* cur)
 }
 
 vector<string> newkernels;
-map<string,int> temparrs_dims;
 int kernel_num = 0;
 int arr_num = 0;
 
 void prod_sum_coder(Node *cur){
     for(auto ch:cur->children)prod_sum_coder(ch);
     if(cur->name == "prod_sum_stmt"){
-        string newkernel = "__global__ void kernel_"+to_string(++kernel_num)+"(){\n";
+        string param_string = "";
+        string pass_param = "";
+        sort(cur->children[2]->params.begin(),cur->children[2]->params.end());
+        cur->children[2]->params.resize(unique(cur->children[2]->params.begin(),cur->children[2]->params.end()) - cur->children[2]->params.begin());
+        for(auto it:cur->children[2]->params)
+        {
+            if(bounds.find(it)==bounds.end() && it != cur->children[5]->children[2]->id)
+            {
+                cur->params.push_back(it);
+                param_string += "int " + it + ",";
+                pass_param += it + ",";
+            }
+        }
+        if(param_string.length()>0)
+        {
+            pass_param.pop_back();
+            param_string.pop_back();
+        }
+        if(param_string!="")
+        {
+            param_string += ",float* temp_"+to_string(++arr_num);
+        }
+        else
+        {
+            param_string = "float* temp_"+to_string(++arr_num);
+        }
+        string newkernel = "__global__ void kernel_"+to_string(++kernel_num)+"(" + param_string + "){\n";
         string bound_var_name = cur->children[5]->children[2]->id;
         string lower_bound = cur->children[5]->children[0]->code;
         string upper_bound = cur->children[5]->children[4]->code;
@@ -439,25 +474,81 @@ void prod_sum_coder(Node *cur){
         newkernel += "\tint "+bound_var_name+" = "+lower_bound_+" + blockDim.x * blockIdx.x + threadIdx.x;\n";
         newkernel += "\tif( !( "+lower_bound_+"<="+bound_var_name+" ) || !( "
             +bound_var_name+"<="+upper_bound_+" ) )return;\n";
-        newkernel += "\ttemp_"+to_string(++arr_num)+"["+bound_var_name+"-"+lower_bound_+"] = "+cur->children[2]->code+";\n}\n";
+        newkernel += "\t"+cur->children[2]->precode+"\n";
+        newkernel += "\ttemp_"+to_string(arr_num)+"["+bound_var_name+"-"+lower_bound_+"] = "+cur->children[2]->code+";\n}\n";
         newkernels.push_back(newkernel);
         cur->code = "int thread_count_"+to_string(kernel_num)+" = "+upper_bound_+"-"+lower_bound_+"+1;\n";
-        cur->code += "kernel_"+to_string(kernel_num)+"<<<"+"ceil( 1.0 * thread_count_"+to_string(kernel_num)+"/1024),"+"1024>>>();\n";
-        int uval,lval;
-        if(iter_bounds.find(lower_bound) != iter_bounds.end()){
-            lval = iter_bounds.find(lower_bound)->second.first;
-        }else lval = stoi(lower_bound);
-        if(iter_bounds.find(upper_bound) != iter_bounds.end()){
-            uval = iter_bounds.find(upper_bound)->second.first;
-        }else uval = stoi(upper_bound);
-        temparrs_dims["temp_"+to_string(arr_num)] = uval-lval+2;
-        if(cur->children[0]->children[0]->name == "PROD"){
-            cur->code += "PROD_kernel<<<ceil( 1.0 * thread_count_"+to_string(kernel_num)+"/1024),"+"1024>>>( temp_"+to_string(arr_num)+");\n";
-        }else{
-            cur->code += "SIGMA_kernel<<<ceil( 1.0 * thread_count_"+to_string(kernel_num)+"/1024),"+"1024>>>( temp_"+to_string(arr_num)+");\n";
+        cur->code += "float* temp_"+to_string(arr_num)+" = (float*)malloc(sizeof(float)*("+ upper_bound_ + "-" + lower_bound_  + "+1" +"));\n";
+        if(pass_param!="")
+        {
+            pass_param += ",temp_"+to_string(arr_num);
         }
+        else
+        {
+            pass_param = "temp_"+to_string(arr_num);
+        }
+        cur->code += "kernel_"+to_string(kernel_num)+"<<<"+"ceil( 1.0 * thread_count_"+to_string(kernel_num)+"/1024),"+"1024>>>("+ pass_param +");\n";
+        cur->code += "cudaDeviceSynchronize();\n";
+        if(cur->children[0]->children[0]->name == "PROD"){
+            cur->code += "PROD_kernel<<<ceil( 1.0 * thread_count_"+to_string(kernel_num)+"/1024),"+"1024>>>( temp_"+to_string(arr_num)+ "," + "thread_count_" + to_string(kernel_num) + ");\n";
+        }else{
+            cur->code += "SIGMA_kernel<<<ceil( 1.0 * thread_count_"+to_string(kernel_num)+"/1024),"+"1024>>>( temp_"+to_string(arr_num)+ "," + "thread_count_" + to_string(kernel_num) + ");\n";
+        }
+        cur->code += "cudaDeviceSynchronize();\n";
         cur->arr_num = arr_num;
     }
+    
+    if(cur->name == "forall_stmt")
+    {
+        string param_string = "";
+        string pass_param = "";
+        sort(cur->children[8]->params.begin(),cur->children[8]->params.end());
+        cur->children[8]->params.resize(unique(cur->children[8]->params.begin(),cur->children[8]->params.end()) - cur->children[8]->params.begin());
+        for(auto it:cur->children[8]->params)
+        {
+            if(bounds.find(it)==bounds.end() && it != cur->children[2]->id)
+            {
+                cur->params.push_back(it);
+                param_string += "int " + it + ",";
+                pass_param += it + ",";
+            }
+        }
+        if(param_string.length()>0)
+        {
+            pass_param.pop_back();
+            param_string.pop_back();
+        }
+        string bound_var_name = cur->children[2]->id;
+        string lower_bound = cur->children[5]->children[0]->code;
+        string upper_bound = cur->children[5]->children[4]->code;
+        string lower_comp,upper_comp,lower_bound_,upper_bound_;
+        if(cur->children[5]->children[1]->name == "LT"){
+            lower_comp = " < ";
+            lower_bound_ = "("+lower_bound+"+1)";
+        }
+        else{
+            lower_comp = " <= ";
+            lower_bound_ = lower_bound;
+        }
+        if(cur->children[5]->children[3]->name == "LT"){
+            upper_comp = " < ";
+            upper_bound_ = "("+upper_bound+"-1)";
+        }
+        else{
+            upper_comp = " <= ";
+            upper_bound_ = upper_bound;
+        }
+        string newkernel = "__global__ void kernel_" + to_string(++kernel_num) + "("+ param_string +"){\n" ;
+        newkernel += "\tint "+bound_var_name+" = "+lower_bound_+" + blockDim.x * blockIdx.x + threadIdx.x;\n";
+        newkernel += "\tif( !( "+lower_bound_+"<="+bound_var_name+" ) || !( "
+            +bound_var_name+"<="+upper_bound_+" ) )return;\n";
+        newkernel += cur->children[8]->code + "\n}\n";
+        newkernels.push_back(newkernel);
+        cur->code = "int thread_count_"+to_string(kernel_num)+" = "+upper_bound_+"-"+lower_bound_+"+1;\n";
+        cur->code += "kernel_"+to_string(kernel_num)+"<<<"+"ceil( 1.0 * thread_count_"+to_string(kernel_num)+"/1024),"+"1024>>>("+ pass_param +");\n";
+        cur->code += "cudaDeviceSynchronize();\n";
+    }
+    
     if(cur->name == "IDENTIFIER"){
         cur->code = cur->id;
         cur->params.push_back(cur->id);
@@ -501,37 +592,76 @@ void prod_sum_coder(Node *cur){
             cur->params = cur->children[0]->params;
         }
         else if(cur->children.size() == 3 && cur->children[0]->name == "term"){
+            cur->precode = cur->children[2]->precode;
             cur->code = cur->children[0]->code + " " + cur->children[1]->id + " " + cur->children[2]->code;
             cur->params = cur->children[0]->params;
             cur->params.insert( cur->params.end(), cur->children[2]->params.begin(), cur->children[2]->params.end());
         }
         else if(cur->children.size() == 3 && cur->children[0]->name == "identifier"){
-            cur->code = cur->children[0]->code + " = " + cur->children[2]->code + ";\n";
+            cur->code = cur->children[2]->precode + cur->children[0]->code + " = " + cur->children[2]->code + ";\n";
             cur->params = cur->children[0]->params;
             cur->params.insert( cur->params.end(), cur->children[2]->params.begin(), cur->children[2]->params.end());
         }
         else if(cur->children[0]->name == "SQRT"){
+            cur->precode = cur->children[2]->precode;
             cur->code = "sqrt(" + cur->children[2]->code + ")";
             cur->params = cur->children[2]->params;
         }
         else if(cur->children[0]->name == "LPAR"){
+            cur->precode = cur->children[1]->precode + "\n" + cur->children[3]->precode;
             cur->code = "(" + cur->children[1]->code + ")" + cur->children[3]->code;
             cur->params = cur->children[1]->params;
             cur->params.insert( cur->params.end(), cur->children[3]->params.begin(), cur->children[3]->params.end());
         }
         else if(cur->children[0]->name == "prod_sum_stmt"){
+            cur->precode = cur->children[0]->code;
             cur->code = "temp_"+to_string(cur->children[0]->arr_num)+"[0]";
+            cur->params = cur->children[0]->params;
         }
-        else {
+        else if(cur->children[0]->name == "forall_stmt"){
             cur->code = cur->children[0]->code;
             cur->params = cur->children[0]->params;
         }
     }
     if(cur->name == "intermediate_expr"){
         if(cur->children.size() == 2){
+            cur->precode = cur->children[1]->precode;
             cur->code = cur->children[0]->id + cur->children[1]->code;
             cur->params = cur->children[1]->params;
         }
+    }
+    if(cur->name == "statements")
+    {
+        if(cur->children.size()==2)
+        {
+            cur->code = cur->children[0]->code + cur->children[1]->code;
+            cur->params = cur->children[0]->params;
+            cur->params.insert( cur->params.end(), cur->children[1]->params.begin(), cur->children[1]->params.end());
+        }
+    }
+    if(cur->name == "statement")
+    {
+        if(cur->children.size()==2)
+        {
+            cur->code = cur->children[0]->code;
+            cur->params = cur->children[0]->params;
+        }
+    }
+    if(cur->name == "program")
+    {
+        cur->params = cur->children[0]->params;
+        sort(cur->params.begin(),cur->params.end());
+        cur->params.resize(unique(cur->params.begin(),cur->params.end()) - cur->params.begin());
+        string newkernel = "__global__ void main_kernel(){\n";
+        for(auto it:cur->params)
+        {
+            newkernel += "int "+it+";\n";
+        }
+        newkernel += cur->children[0]->code + "\nreturn;\n}\n";
+        newkernels.push_back(newkernel);
+        cur->code = "int main(){\n";
+        cur->code += "main_kernel<<<1,1>>>();\ncudaDeviceSynchronize();\n";
+        cur->code += "return 0;\n}\n";
     }
 }
 
@@ -539,10 +669,22 @@ int main(int argc, char *argv[]) {
     yyin = fopen(argv[1],"r");
     yyparse();
     determineMemory(root);
+    newkernels.push_back("__global__ void SIGMA_kernel(float* sigma_arr,int n){\nint idx = blockDim.x * blockIdx.x + threadIdx.x;\nif(idx>=1)return;\nfor(int i=1;i<n;i++){\nsigma_arr[0] += sigma_arr[i];\n}\n}\n");
+    newkernels.push_back("__global__ void PROD_kernel(float* prod_arr,int n){\nint idx = blockDim.x * blockIdx.x + threadIdx.x;\nif(idx>=1)return;\nfor(int i=1;i<n;i++){\nprod_arr[0] *= prod_arr[i];\n}\n}\n");
+    string program = "#include<stdio.h>\n#include<cuda.h>\n#include<stdlib.h>\n#include<math.h>\n";
     prod_sum_coder(root);
-    for(auto ch: newkernels){
-        cout<<ch<<endl;
+    for(auto it:bounds)
+    {
+        program += "__device__ float "+it.first;
+        for(auto i:it.second)
+            program+= "[" + to_string(i+2) + "]";
+        program += ";\n";
     }
+    for(auto ch: newkernels){
+        program += (ch + "\n");
+    }
+    program += root->code;
+    cout<<program<<endl;
     //root->print_tree();
     return 0;
 }
