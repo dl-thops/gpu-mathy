@@ -7,6 +7,7 @@
     #include <vector>
     #include <algorithm>
     #include <map>
+    #include <fstream>
     using namespace::std;
     void yyerror(char *);
 	int yylex(void);
@@ -474,11 +475,11 @@ void prod_sum_coder(Node *cur){
             upper_comp = " <= ";
             upper_bound_ = upper_bound;
         }
-        newkernel += "\tint "+bound_var_name+" = "+lower_bound_+" + blockDim.x * blockIdx.x + threadIdx.x;\n";
-        newkernel += "\tif( !( "+lower_bound_+"<="+bound_var_name+" ) || !( "
+        newkernel += "int "+bound_var_name+" = "+lower_bound_+" + blockDim.x * blockIdx.x + threadIdx.x;\n";
+        newkernel += "if( !( "+lower_bound_+"<="+bound_var_name+" ) || !( "
             +bound_var_name+"<="+upper_bound_+" ) )return;\n";
-        newkernel += "\t"+cur->children[2]->precode+"\n";
-        newkernel += "\ttemp_"+to_string(arr_num)+"["+bound_var_name+"-"+lower_bound_+"] = "+cur->children[2]->code+";\n}\n";
+        newkernel += ""+cur->children[2]->precode;
+        newkernel += "temp_"+to_string(arr_num)+"["+bound_var_name+"-"+lower_bound_+"] = "+cur->children[2]->code+";\n}\n";
         newkernels.push_back(newkernel);
         cur->code = "int thread_count_"+to_string(kernel_num)+" = "+upper_bound_+"-"+lower_bound_+"+1;\n";
         cur->code += "float* temp_"+to_string(arr_num)+" = (float*)malloc(sizeof(float)*("+ upper_bound_ + "-" + lower_bound_  + "+1" +"));\n";
@@ -545,10 +546,10 @@ void prod_sum_coder(Node *cur){
             upper_bound_ = upper_bound;
         }
         string newkernel = "__global__ void kernel_" + to_string(++kernel_num) + "("+ param_string +"){\n" ;
-        newkernel += "\tint "+bound_var_name+" = "+lower_bound_+" + blockDim.x * blockIdx.x + threadIdx.x;\n";
-        newkernel += "\tif( !( "+lower_bound_+"<="+bound_var_name+" ) || !( "
+        newkernel += "int "+bound_var_name+" = "+lower_bound_+" + blockDim.x * blockIdx.x + threadIdx.x;\n";
+        newkernel += "if( !( "+lower_bound_+"<="+bound_var_name+" ) || !( "
             +bound_var_name+"<="+upper_bound_+" ) )return;\n";
-        newkernel += cur->children[8]->code + "\n}\n";
+        newkernel += cur->children[8]->code + "}\n";
         newkernels.push_back(newkernel);
         cur->code = "int thread_count_"+to_string(kernel_num)+" = "+upper_bound_+"-"+lower_bound_+"+1;\n";
         cur->code += "kernel_"+to_string(kernel_num)+"<<<"+"ceil( 1.0 * thread_count_"+to_string(kernel_num)+"/1024),"+"1024>>>("+ pass_param +");\n";
@@ -663,7 +664,7 @@ void prod_sum_coder(Node *cur){
         {
             newkernel += "float "+it+";\n";
         }
-        newkernel += cur->children[0]->code + "\nreturn;\n}\n";
+        newkernel += cur->children[0]->code + "return;\n}\n";
         newkernels.push_back(newkernel);
         cur->code = "int main(){\n";
         cur->code += "struct timeval t1, t2;\n";
@@ -685,13 +686,34 @@ void prod_sum_coder(Node *cur){
     }
 }
 
+string beautify(string str){
+    string res = "";
+    string tabs = "";
+    for(int ii = 0; ii < str.length(); ii++){
+        if(str[ii] == '}' && res[res.length()-1] == '\t'){
+            tabs.pop_back();
+            res.pop_back();
+        }
+        res.push_back(str[ii]);
+        if(str[ii] == '\n'){
+            res += tabs;
+        }
+        if(str[ii] == '{'){
+            tabs.push_back('\t');
+        }
+    }
+    return res;
+}
+
 int main(int argc, char *argv[]) {
     yyin = fopen(argv[1],"r");
     yyparse();
     determineMemory(root);
+
     newkernels.push_back("__global__ void sumCommMultiBlock(float *a, int n) {\nint thIdx = threadIdx.x;\nint gthIdx = thIdx + blockIdx.x*1024;\nconst int gridSize = 1024*gridDim.x;\nfloat sum = 0;\nfor (int i = gthIdx; i < n; i += gridSize)\nsum += a[i];\n__shared__ float shArr[1024];\nshArr[thIdx] = sum;\n__syncthreads();\nfor (int size = 1024/2; size>0; size/=2) {\nif (thIdx<size)\nshArr[thIdx] += shArr[thIdx+size];\n__syncthreads();\n}\nif (thIdx == 0)\na[blockIdx.x] = shArr[0];\n}\n\n__device__ void sumArray(float* a,int n) {\nsumCommMultiBlock<<<24, 1024>>>(a, n);\nsumCommMultiBlock<<<1, 1024>>>(a, 24);\ncudaDeviceSynchronize();\n}\n");
     newkernels.push_back("__global__ void prodCommMultiBlock(float *a, int n) {\nint thIdx = threadIdx.x;\nint gthIdx = thIdx + blockIdx.x*1024;\nconst int gridSize = 1024*gridDim.x;\nfloat prod = 1;\nfor (int i = gthIdx; i < n; i += gridSize)\nprod *= a[i];\n__shared__ float shArr[1024];\nshArr[thIdx] = prod;\n__syncthreads();\nfor (int size = 1024/2; size>0; size/=2) {\nif (thIdx<size)\nshArr[thIdx] *= shArr[thIdx+size];\n__syncthreads();\n}\nif (thIdx == 0)\na[blockIdx.x] = shArr[0];\n}\n\n__device__ void prodArray(float* a,int n) {\nprodCommMultiBlock<<<24, 1024>>>(a, n);\nprodCommMultiBlock<<<1, 1024>>>(a, 24);\ncudaDeviceSynchronize();\n}\n");
     string program = "#include<stdio.h>\n#include<cuda.h>\n#include<stdlib.h>\n#include<math.h>\n#include <sys/time.h>\n";
+    
     prod_sum_coder(root);
     for(auto it:bounds)
     {
@@ -700,11 +722,19 @@ int main(int argc, char *argv[]) {
             program+= "[" + to_string(i+2) + "]";
         program += ";\n";
     }
+    program+="\n";
     for(auto ch: newkernels){
         program += (ch + "\n");
     }
     program += root->code;
-    cout<<program<<endl;
-    //root->print_tree();
+    program = beautify(program);
+    if(argc > 2){
+        ofstream fout;
+        fout.open(argv[2],ofstream::out);
+        fout<<program;
+        fout.close();
+    }else{
+        cout<<program<<endl;
+    }
     return 0;
 }
