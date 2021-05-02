@@ -1,7 +1,7 @@
-#include<stdio.h>
-#include<cuda.h>
-#include<stdlib.h>
-#include<math.h>
+#include <stdio.h>
+#include <cuda.h>
+#include <stdlib.h>
+#include <math.h>
 #include <sys/time.h>
 
 __device__ float A[2202][1802];
@@ -120,7 +120,7 @@ int main(){
 	float* h_s = (float*) malloc(sizeof(float)* (2202));
 	cudaMemcpyFromSymbol(h_s,s,sizeof(float)* (2202));
 	gettimeofday(&t2, 0);
-	double time = (1000000.0*(t2.tv_sec-t1.tv_sec) + t2.tv_usec-t1.tv_usec)/1000.0;
-	printf("Time taken for execution is: %.6f ms\n", time);
+	double time = 1.0*(t2.tv_sec-t1.tv_sec) + (t2.tv_usec-t1.tv_usec)/1000000.0;
+	printf("Time taken for execution is: %.8f sec\n", time);
 	return 0;
 }

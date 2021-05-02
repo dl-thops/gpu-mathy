@@ -680,8 +680,8 @@ void prod_sum_coder(Node *cur){
             cur->code += "cudaMemcpyFromSymbol(h_"+it.first+","+it.first+","+dims+");\n";
         }
         cur->code += "gettimeofday(&t2, 0);\n";
-        cur->code += "double time = (1000000.0*(t2.tv_sec-t1.tv_sec) + t2.tv_usec-t1.tv_usec)/1000.0;\n";
-        cur->code += "printf(\"Time taken for execution is: %.6f ms\\n\", time);\n";
+        cur->code += "double time = 1.0*(t2.tv_sec-t1.tv_sec) + (t2.tv_usec-t1.tv_usec)/1000000.0;\n";
+        cur->code += "printf(\"Time taken for execution is: %.8f sec\\n\", time);\n";
         cur->code += "return 0;\n}\n";
     }
 }
@@ -712,7 +712,7 @@ int main(int argc, char *argv[]) {
 
     newkernels.push_back("__global__ void sumCommMultiBlock(float *a, int n) {\nint thIdx = threadIdx.x;\nint gthIdx = thIdx + blockIdx.x*1024;\nconst int gridSize = 1024*gridDim.x;\nfloat sum = 0;\nfor (int i = gthIdx; i < n; i += gridSize){\nsum += a[i];\n}\n__shared__ float shArr[1024];\nshArr[thIdx] = sum;\n__syncthreads();\nfor (int size = 1024/2; size>0; size/=2) {\nif (thIdx<size){\nshArr[thIdx] += shArr[thIdx+size];\n}\n__syncthreads();\n}\nif (thIdx == 0){\na[blockIdx.x] = shArr[0];\n}\n}\n\n__device__ void sumArray(float* a,int n) {\nsumCommMultiBlock<<<24, 1024>>>(a, n);\nsumCommMultiBlock<<<1, 1024>>>(a, 24);\ncudaDeviceSynchronize();\n}\n");
     newkernels.push_back("__global__ void prodCommMultiBlock(float *a, int n) {\nint thIdx = threadIdx.x;\nint gthIdx = thIdx + blockIdx.x*1024;\nconst int gridSize = 1024*gridDim.x;\nfloat prod = 1;\nfor (int i = gthIdx; i < n; i += gridSize){\nprod *= a[i];\n}\n__shared__ float shArr[1024];\nshArr[thIdx] = prod;\n__syncthreads();\nfor (int size = 1024/2; size>0; size/=2) {\nif (thIdx<size){\nshArr[thIdx] *= shArr[thIdx+size];\n}\n__syncthreads();\n}\nif (thIdx == 0){\na[blockIdx.x] = shArr[0];\n}\n}\n\n__device__ void prodArray(float* a,int n) {\nprodCommMultiBlock<<<24, 1024>>>(a, n);\nprodCommMultiBlock<<<1, 1024>>>(a, 24);\ncudaDeviceSynchronize();\n}\n");
-    string program = "#include<stdio.h>\n#include<cuda.h>\n#include<stdlib.h>\n#include<math.h>\n#include <sys/time.h>\n\n";
+    string program = "#include <stdio.h>\n#include <cuda.h>\n#include <stdlib.h>\n#include <math.h>\n#include <sys/time.h>\n\n";
     
     prod_sum_coder(root);
     for(auto it:bounds)
