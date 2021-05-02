@@ -4,8 +4,8 @@
 #include <math.h>
 #include <sys/time.h>
 
-__device__ float A[202][202][202];
-__device__ float B[202][202][202];
+__device__ float A[203][203][203];
+__device__ float B[203][203][203];
 
 __global__ void sumCommMultiBlock(float *a, int n) {
 	int thIdx = threadIdx.x;
@@ -65,7 +65,7 @@ __device__ void prodArray(float* a,int n) {
 
 __global__ void kernel_1(int i,int j){
 	int k = 1 + blockDim.x * blockIdx.x + threadIdx.x;
-	if( !( 1<=k ) || !( k<=(199-1) ) )return;
+	if( !( 1<=k ) || !( k<=(200-1) ) )return;
 	
 	
 	
@@ -74,23 +74,23 @@ __global__ void kernel_1(int i,int j){
 
 __global__ void kernel_2(int i){
 	int j = 1 + blockDim.x * blockIdx.x + threadIdx.x;
-	if( !( 1<=j ) || !( j<=(199-1) ) )return;
-	int thread_count_1 = (199-1)-1+1;
+	if( !( 1<=j ) || !( j<=(200-1) ) )return;
+	int thread_count_1 = (200-1)-1+1;
 	kernel_1<<<ceil( 1.0 * thread_count_1/1024),1024>>>(i,j);
 	cudaDeviceSynchronize();
 }
 
 __global__ void kernel_3(){
 	int i = 1 + blockDim.x * blockIdx.x + threadIdx.x;
-	if( !( 1<=i ) || !( i<=(199-1) ) )return;
-	int thread_count_2 = (199-1)-1+1;
+	if( !( 1<=i ) || !( i<=(200-1) ) )return;
+	int thread_count_2 = (200-1)-1+1;
 	kernel_2<<<ceil( 1.0 * thread_count_2/1024),1024>>>(i);
 	cudaDeviceSynchronize();
 }
 
 __global__ void kernel_4(int i,int j){
 	int k = 1 + blockDim.x * blockIdx.x + threadIdx.x;
-	if( !( 1<=k ) || !( k<=(199-1) ) )return;
+	if( !( 1<=k ) || !( k<=(200-1) ) )return;
 	
 	
 	
@@ -99,16 +99,16 @@ __global__ void kernel_4(int i,int j){
 
 __global__ void kernel_5(int i){
 	int j = 1 + blockDim.x * blockIdx.x + threadIdx.x;
-	if( !( 1<=j ) || !( j<=(199-1) ) )return;
-	int thread_count_4 = (199-1)-1+1;
+	if( !( 1<=j ) || !( j<=(200-1) ) )return;
+	int thread_count_4 = (200-1)-1+1;
 	kernel_4<<<ceil( 1.0 * thread_count_4/1024),1024>>>(i,j);
 	cudaDeviceSynchronize();
 }
 
 __global__ void kernel_6(){
 	int i = 1 + blockDim.x * blockIdx.x + threadIdx.x;
-	if( !( 1<=i ) || !( i<=(199-1) ) )return;
-	int thread_count_5 = (199-1)-1+1;
+	if( !( 1<=i ) || !( i<=(200-1) ) )return;
+	int thread_count_5 = (200-1)-1+1;
 	kernel_5<<<ceil( 1.0 * thread_count_5/1024),1024>>>(i);
 	cudaDeviceSynchronize();
 }
@@ -116,10 +116,10 @@ __global__ void kernel_6(){
 __global__ void kernel_7(){
 	int t = 0 + blockDim.x * blockIdx.x + threadIdx.x;
 	if( !( 0<=t ) || !( t<=1000 ) )return;
-	int thread_count_3 = (199-1)-1+1;
+	int thread_count_3 = (200-1)-1+1;
 	kernel_3<<<ceil( 1.0 * thread_count_3/1024),1024>>>();
 	cudaDeviceSynchronize();
-	int thread_count_6 = (199-1)-1+1;
+	int thread_count_6 = (200-1)-1+1;
 	kernel_6<<<ceil( 1.0 * thread_count_6/1024),1024>>>();
 	cudaDeviceSynchronize();
 }
@@ -136,10 +136,10 @@ int main(){
 	gettimeofday(&t1, 0);
 	main_kernel<<<1,1>>>();
 	cudaDeviceSynchronize();
-	float* h_A = (float*) malloc(sizeof(float)* (202)* (202)* (202));
-	cudaMemcpyFromSymbol(h_A,A,sizeof(float)* (202)* (202)* (202));
-	float* h_B = (float*) malloc(sizeof(float)* (202)* (202)* (202));
-	cudaMemcpyFromSymbol(h_B,B,sizeof(float)* (202)* (202)* (202));
+	float* h_A = (float*) malloc(sizeof(float)* (203)* (203)* (203));
+	cudaMemcpyFromSymbol(h_A,A,sizeof(float)* (203)* (203)* (203));
+	float* h_B = (float*) malloc(sizeof(float)* (203)* (203)* (203));
+	cudaMemcpyFromSymbol(h_B,B,sizeof(float)* (203)* (203)* (203));
 	gettimeofday(&t2, 0);
 	double time = 1.0*(t2.tv_sec-t1.tv_sec) + (t2.tv_usec-t1.tv_usec)/1000000.0;
 	printf("Time taken for execution is: %.8f sec\n", time);

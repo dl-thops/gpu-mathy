@@ -4,10 +4,10 @@
 #include <math.h>
 #include <sys/time.h>
 
-__device__ float A[4002][4002];
-__device__ float b[4002];
-__device__ float x[4002];
-__device__ float y[4002];
+__device__ float A[4001][2002];
+__device__ float b[2002];
+__device__ float x[2002];
+__device__ float y[2002];
 
 __global__ void sumCommMultiBlock(float *a, int n) {
 	int thIdx = threadIdx.x;
@@ -91,7 +91,7 @@ __global__ void kernel_3(int i,int j,float w){
 
 __global__ void kernel_4(int i,float w){
 	int j = i + blockDim.x * blockIdx.x + threadIdx.x;
-	if( !( i<=j ) || !( j<=(4000-1) ) )return;
+	if( !( i<=j ) || !( j<=(2000-1) ) )return;
 	w = A[i][j];
 	int thread_count_3 = (i-1)-0+1;
 	kernel_3<<<ceil( 1.0 * thread_count_3/1024),1024>>>(i,j,w);
@@ -101,11 +101,11 @@ __global__ void kernel_4(int i,float w){
 
 __global__ void kernel_5(float w){
 	int i = 0 + blockDim.x * blockIdx.x + threadIdx.x;
-	if( !( 0<=i ) || !( i<=(4000-1) ) )return;
+	if( !( 0<=i ) || !( i<=(2000-1) ) )return;
 	int thread_count_2 = (i-1)-0+1;
 	kernel_2<<<ceil( 1.0 * thread_count_2/1024),1024>>>(i,w);
 	cudaDeviceSynchronize();
-	int thread_count_4 = (4000-1)-i+1;
+	int thread_count_4 = (2000-1)-i+1;
 	kernel_4<<<ceil( 1.0 * thread_count_4/1024),1024>>>(i,w);
 	cudaDeviceSynchronize();
 }
@@ -118,7 +118,7 @@ __global__ void kernel_6(int i,float w){
 
 __global__ void kernel_7(float w){
 	int i = 0 + blockDim.x * blockIdx.x + threadIdx.x;
-	if( !( 0<=i ) || !( i<=(4000-1) ) )return;
+	if( !( 0<=i ) || !( i<=(2000-1) ) )return;
 	w = b[i];
 	int thread_count_6 = (i-1)-0+1;
 	kernel_6<<<ceil( 1.0 * thread_count_6/1024),1024>>>(i,w);
@@ -127,30 +127,30 @@ __global__ void kernel_7(float w){
 }
 
 __global__ void kernel_8(int i,float w){
-	int j = 4000 - i + blockDim.x * blockIdx.x + threadIdx.x;
-	if( !( 4000 - i<=j ) || !( j<=(4000-1) ) )return;
+	int j = 2000 - i + blockDim.x * blockIdx.x + threadIdx.x;
+	if( !( 2000 - i<=j ) || !( j<=(2000-1) ) )return;
 	w = w - A[3999-i][j] * x[j];
 }
 
 __global__ void kernel_9(float w){
 	int i = 0 + blockDim.x * blockIdx.x + threadIdx.x;
-	if( !( 0<=i ) || !( i<=(4000-1) ) )return;
-	w = y[4000-1-i];
-	int thread_count_8 = (4000-1)-4000 - i+1;
+	if( !( 0<=i ) || !( i<=(2000-1) ) )return;
+	w = y[2000-1-i];
+	int thread_count_8 = (2000-1)-2000 - i+1;
 	kernel_8<<<ceil( 1.0 * thread_count_8/1024),1024>>>(i,w);
 	cudaDeviceSynchronize();
-	x[4000-1-i] = w / A[4000-1-i][4000-1-i];
+	x[2000-1-i] = w / A[2000-1-i][2000-1-i];
 }
 
 __global__ void main_kernel(){
 	float w;
-	int thread_count_5 = (4000-1)-0+1;
+	int thread_count_5 = (2000-1)-0+1;
 	kernel_5<<<ceil( 1.0 * thread_count_5/1024),1024>>>(w);
 	cudaDeviceSynchronize();
-	int thread_count_7 = (4000-1)-0+1;
+	int thread_count_7 = (2000-1)-0+1;
 	kernel_7<<<ceil( 1.0 * thread_count_7/1024),1024>>>(w);
 	cudaDeviceSynchronize();
-	int thread_count_9 = (4000-1)-0+1;
+	int thread_count_9 = (2000-1)-0+1;
 	kernel_9<<<ceil( 1.0 * thread_count_9/1024),1024>>>(w);
 	cudaDeviceSynchronize();
 	return;
@@ -161,14 +161,14 @@ int main(){
 	gettimeofday(&t1, 0);
 	main_kernel<<<1,1>>>();
 	cudaDeviceSynchronize();
-	float* h_A = (float*) malloc(sizeof(float)* (4002)* (4002));
-	cudaMemcpyFromSymbol(h_A,A,sizeof(float)* (4002)* (4002));
-	float* h_b = (float*) malloc(sizeof(float)* (4002));
-	cudaMemcpyFromSymbol(h_b,b,sizeof(float)* (4002));
-	float* h_x = (float*) malloc(sizeof(float)* (4002));
-	cudaMemcpyFromSymbol(h_x,x,sizeof(float)* (4002));
-	float* h_y = (float*) malloc(sizeof(float)* (4002));
-	cudaMemcpyFromSymbol(h_y,y,sizeof(float)* (4002));
+	float* h_A = (float*) malloc(sizeof(float)* (4001)* (2002));
+	cudaMemcpyFromSymbol(h_A,A,sizeof(float)* (4001)* (2002));
+	float* h_b = (float*) malloc(sizeof(float)* (2002));
+	cudaMemcpyFromSymbol(h_b,b,sizeof(float)* (2002));
+	float* h_x = (float*) malloc(sizeof(float)* (2002));
+	cudaMemcpyFromSymbol(h_x,x,sizeof(float)* (2002));
+	float* h_y = (float*) malloc(sizeof(float)* (2002));
+	cudaMemcpyFromSymbol(h_y,y,sizeof(float)* (2002));
 	gettimeofday(&t2, 0);
 	double time = 1.0*(t2.tv_sec-t1.tv_sec) + (t2.tv_usec-t1.tv_usec)/1000000.0;
 	printf("Time taken for execution is: %.8f sec\n", time);

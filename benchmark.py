@@ -15,7 +15,7 @@ _ = subprocess.run( 'make -C ' + SRC_DIR, shell = True, stdout=open(os.devnull, 
 
 # Run executable on input files
 for INPUT_DIR,OUTPUT_DIR in zip(INPUT_DIRS,OUTPUT_DIRS):
-    os.mkdir(OUTPUT_DIR)
+    os.makedirs( OUTPUT_DIR, exist_ok = True)
     for root, dirs, files in os.walk(INPUT_DIR):
         for name in files:
             output_filename = name.split('.')[0] + '.cu'

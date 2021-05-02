@@ -4,8 +4,8 @@
 #include <math.h>
 #include <sys/time.h>
 
-__device__ float A[2602][2002];
-__device__ float C[2602][2602];
+__device__ float A[242][202];
+__device__ float C[242][242];
 
 __global__ void sumCommMultiBlock(float *a, int n) {
 	int thIdx = threadIdx.x;
@@ -77,7 +77,7 @@ __global__ void kernel_2(float alpha,int i,int k,float* temp_1){
 
 __global__ void kernel_3(float alpha,int i){
 	int k = 0 + blockDim.x * blockIdx.x + threadIdx.x;
-	if( !( 0<=k ) || !( k<=(2000-1) ) )return;
+	if( !( 0<=k ) || !( k<=(200-1) ) )return;
 	int thread_count_2 = i-0+1;
 	float* temp_1 = (float*)malloc(sizeof(float)*(i-0+1));
 	kernel_2<<<ceil( 1.0 * thread_count_2/1024),1024>>>(alpha,i,k,temp_1);
@@ -89,11 +89,11 @@ __global__ void kernel_3(float alpha,int i){
 
 __global__ void kernel_4(float alpha,float beta){
 	int i = 0 + blockDim.x * blockIdx.x + threadIdx.x;
-	if( !( 0<=i ) || !( i<=(2600-1) ) )return;
+	if( !( 0<=i ) || !( i<=(240-1) ) )return;
 	int thread_count_1 = i-0+1;
 	kernel_1<<<ceil( 1.0 * thread_count_1/1024),1024>>>(beta,i);
 	cudaDeviceSynchronize();
-	int thread_count_3 = (2000-1)-0+1;
+	int thread_count_3 = (200-1)-0+1;
 	kernel_3<<<ceil( 1.0 * thread_count_3/1024),1024>>>(alpha,i);
 	cudaDeviceSynchronize();
 }
@@ -103,7 +103,7 @@ __global__ void main_kernel(){
 	float beta;
 	alpha = 1.5;
 	beta = 1.2;
-	int thread_count_4 = (2600-1)-0+1;
+	int thread_count_4 = (240-1)-0+1;
 	kernel_4<<<ceil( 1.0 * thread_count_4/1024),1024>>>(alpha,beta);
 	cudaDeviceSynchronize();
 	return;
@@ -114,10 +114,10 @@ int main(){
 	gettimeofday(&t1, 0);
 	main_kernel<<<1,1>>>();
 	cudaDeviceSynchronize();
-	float* h_A = (float*) malloc(sizeof(float)* (2602)* (2002));
-	cudaMemcpyFromSymbol(h_A,A,sizeof(float)* (2602)* (2002));
-	float* h_C = (float*) malloc(sizeof(float)* (2602)* (2602));
-	cudaMemcpyFromSymbol(h_C,C,sizeof(float)* (2602)* (2602));
+	float* h_A = (float*) malloc(sizeof(float)* (242)* (202));
+	cudaMemcpyFromSymbol(h_A,A,sizeof(float)* (242)* (202));
+	float* h_C = (float*) malloc(sizeof(float)* (242)* (242));
+	cudaMemcpyFromSymbol(h_C,C,sizeof(float)* (242)* (242));
 	gettimeofday(&t2, 0);
 	double time = 1.0*(t2.tv_sec-t1.tv_sec) + (t2.tv_usec-t1.tv_usec)/1000000.0;
 	printf("Time taken for execution is: %.8f sec\n", time);

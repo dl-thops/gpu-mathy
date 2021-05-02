@@ -4,8 +4,8 @@
 #include <math.h>
 #include <sys/time.h>
 
-__device__ float A[4002];
-__device__ float B[4002];
+__device__ float A[2003];
+__device__ float B[2003];
 
 __global__ void sumCommMultiBlock(float *a, int n) {
 	int thIdx = threadIdx.x;
@@ -65,31 +65,31 @@ __device__ void prodArray(float* a,int n) {
 
 __global__ void kernel_1(){
 	int i = 1 + blockDim.x * blockIdx.x + threadIdx.x;
-	if( !( 1<=i ) || !( i<=(3999-1) ) )return;
+	if( !( 1<=i ) || !( i<=(2000-1) ) )return;
 	
 	B[i] = 0.33333 * (A[i] + A[i-1] + A[i+1]);
 }
 
 __global__ void kernel_2(){
 	int i = 1 + blockDim.x * blockIdx.x + threadIdx.x;
-	if( !( 1<=i ) || !( i<=(3999-1) ) )return;
+	if( !( 1<=i ) || !( i<=(2000-1) ) )return;
 	
 	A[i] = 0.33333 * (B[i] + B[i-1] + B[i+1]);
 }
 
 __global__ void kernel_3(){
 	int t = 0 + blockDim.x * blockIdx.x + threadIdx.x;
-	if( !( 0<=t ) || !( t<=(1000-1) ) )return;
-	int thread_count_1 = (3999-1)-1+1;
+	if( !( 0<=t ) || !( t<=(500-1) ) )return;
+	int thread_count_1 = (2000-1)-1+1;
 	kernel_1<<<ceil( 1.0 * thread_count_1/1024),1024>>>();
 	cudaDeviceSynchronize();
-	int thread_count_2 = (3999-1)-1+1;
+	int thread_count_2 = (2000-1)-1+1;
 	kernel_2<<<ceil( 1.0 * thread_count_2/1024),1024>>>();
 	cudaDeviceSynchronize();
 }
 
 __global__ void main_kernel(){
-	int thread_count_3 = (1000-1)-0+1;
+	int thread_count_3 = (500-1)-0+1;
 	kernel_3<<<ceil( 1.0 * thread_count_3/1024),1024>>>();
 	cudaDeviceSynchronize();
 	return;
@@ -100,10 +100,10 @@ int main(){
 	gettimeofday(&t1, 0);
 	main_kernel<<<1,1>>>();
 	cudaDeviceSynchronize();
-	float* h_A = (float*) malloc(sizeof(float)* (4002));
-	cudaMemcpyFromSymbol(h_A,A,sizeof(float)* (4002));
-	float* h_B = (float*) malloc(sizeof(float)* (4002));
-	cudaMemcpyFromSymbol(h_B,B,sizeof(float)* (4002));
+	float* h_A = (float*) malloc(sizeof(float)* (2003));
+	cudaMemcpyFromSymbol(h_A,A,sizeof(float)* (2003));
+	float* h_B = (float*) malloc(sizeof(float)* (2003));
+	cudaMemcpyFromSymbol(h_B,B,sizeof(float)* (2003));
 	gettimeofday(&t2, 0);
 	double time = 1.0*(t2.tv_sec-t1.tv_sec) + (t2.tv_usec-t1.tv_usec)/1000000.0;
 	printf("Time taken for execution is: %.8f sec\n", time);
