@@ -434,7 +434,10 @@ void prod_sum_coder(Node *cur){
             if(bounds.find(it)==bounds.end() && it != cur->children[5]->children[2]->id)
             {
                 cur->params.push_back(it);
-                param_string += "int " + it + ",";
+                if(iter_bounds.find(it)!=iter_bounds.end())
+                   param_string += "int " + it + ",";
+                else
+                   param_string += "float " + it + ",";
                 pass_param += it + ",";
             }
         }
@@ -490,10 +493,10 @@ void prod_sum_coder(Node *cur){
         }
         cur->code += "kernel_"+to_string(kernel_num)+"<<<"+"ceil( 1.0 * thread_count_"+to_string(kernel_num)+"/1024),"+"1024>>>("+ pass_param +");\n";
         cur->code += "cudaDeviceSynchronize();\n";
-        if(cur->children[0]->children[0]->name == "PROD"){
-            cur->code += "PROD_kernel<<<ceil( 1.0 * thread_count_"+to_string(kernel_num)+"/1024),"+"1024>>>( temp_"+to_string(arr_num)+ "," + "thread_count_" + to_string(kernel_num) + ");\n";
+        if(cur->children[0]->children[0]->name == "PRODUCT"){
+            cur->code += "prodArray( temp_"+to_string(arr_num)+ "," + "thread_count_" + to_string(kernel_num) + ");\n";
         }else{
-            cur->code += "SIGMA_kernel<<<ceil( 1.0 * thread_count_"+to_string(kernel_num)+"/1024),"+"1024>>>( temp_"+to_string(arr_num)+ "," + "thread_count_" + to_string(kernel_num) + ");\n";
+            cur->code += "sumArray( temp_"+to_string(arr_num)+ "," + "thread_count_" + to_string(kernel_num) + ");\n";
         }
         cur->code += "cudaDeviceSynchronize();\n";
         cur->arr_num = arr_num;
@@ -510,7 +513,10 @@ void prod_sum_coder(Node *cur){
             if(bounds.find(it)==bounds.end() && it != cur->children[2]->id)
             {
                 cur->params.push_back(it);
-                param_string += "int " + it + ",";
+                if(iter_bounds.find(it)!=iter_bounds.end())
+                   param_string += "int " + it + ",";
+                else
+                   param_string += "float " + it + ",";
                 pass_param += it + ",";
             }
         }
@@ -656,12 +662,26 @@ void prod_sum_coder(Node *cur){
         string newkernel = "__global__ void main_kernel(){\n";
         for(auto it:cur->params)
         {
-            newkernel += "int "+it+";\n";
+            newkernel += "float "+it+";\n";
         }
         newkernel += cur->children[0]->code + "return;\n}\n";
         newkernels.push_back(newkernel);
         cur->code = "int main(){\n";
+        cur->code += "struct timeval t1, t2;\n";
+        cur->code += "gettimeofday(&t1, 0);\n";
         cur->code += "main_kernel<<<1,1>>>();\ncudaDeviceSynchronize();\n";
+        
+        for(auto it:bounds)
+        {
+            string dims = "sizeof(float)";
+            for(auto i:it.second)
+                dims+="* ("+to_string(i+2)+")";
+            cur->code += "float* h_"+it.first+" = (float*) malloc("+dims+");\n";
+            cur->code += "cudaMemcpyFromSymbol(h_"+it.first+","+it.first+","+dims+");\n";
+        }
+        cur->code += "gettimeofday(&t2, 0);\n";
+        cur->code += "double time = (1000000.0*(t2.tv_sec-t1.tv_sec) + t2.tv_usec-t1.tv_usec)/1000.0;\n";
+        cur->code += "printf(\"Time taken for execution is: %.6f ms\\n\", time);\n";
         cur->code += "return 0;\n}\n";
     }
 }
@@ -689,9 +709,11 @@ int main(int argc, char *argv[]) {
     yyin = fopen(argv[1],"r");
     yyparse();
     determineMemory(root);
-    newkernels.push_back("__global__ void SIGMA_kernel(float* sigma_arr,int n){\nint idx = blockDim.x * blockIdx.x + threadIdx.x;\nif(idx>=1)return;\nfor(int i=1;i<n;i++){\nsigma_arr[0] += sigma_arr[i];\n}\n}\n");
-    newkernels.push_back("__global__ void PROD_kernel(float* prod_arr,int n){\nint idx = blockDim.x * blockIdx.x + threadIdx.x;\nif(idx>=1)return;\nfor(int i=1;i<n;i++){\nprod_arr[0] *= prod_arr[i];\n}\n}\n");
-    string program = "#include<stdio.h>\n#include<cuda.h>\n#include<stdlib.h>\n#include<math.h>\n\n";
+
+    newkernels.push_back("__global__ void sumCommMultiBlock(float *a, int n) {\nint thIdx = threadIdx.x;\nint gthIdx = thIdx + blockIdx.x*1024;\nconst int gridSize = 1024*gridDim.x;\nfloat sum = 0;\nfor (int i = gthIdx; i < n; i += gridSize)\nsum += a[i];\n__shared__ float shArr[1024];\nshArr[thIdx] = sum;\n__syncthreads();\nfor (int size = 1024/2; size>0; size/=2) {\nif (thIdx<size)\nshArr[thIdx] += shArr[thIdx+size];\n__syncthreads();\n}\nif (thIdx == 0)\na[blockIdx.x] = shArr[0];\n}\n\n__device__ void sumArray(float* a,int n) {\nsumCommMultiBlock<<<24, 1024>>>(a, n);\nsumCommMultiBlock<<<1, 1024>>>(a, 24);\ncudaDeviceSynchronize();\n}\n");
+    newkernels.push_back("__global__ void prodCommMultiBlock(float *a, int n) {\nint thIdx = threadIdx.x;\nint gthIdx = thIdx + blockIdx.x*1024;\nconst int gridSize = 1024*gridDim.x;\nfloat prod = 1;\nfor (int i = gthIdx; i < n; i += gridSize)\nprod *= a[i];\n__shared__ float shArr[1024];\nshArr[thIdx] = prod;\n__syncthreads();\nfor (int size = 1024/2; size>0; size/=2) {\nif (thIdx<size)\nshArr[thIdx] *= shArr[thIdx+size];\n__syncthreads();\n}\nif (thIdx == 0)\na[blockIdx.x] = shArr[0];\n}\n\n__device__ void prodArray(float* a,int n) {\nprodCommMultiBlock<<<24, 1024>>>(a, n);\nprodCommMultiBlock<<<1, 1024>>>(a, 24);\ncudaDeviceSynchronize();\n}\n");
+    string program = "#include<stdio.h>\n#include<cuda.h>\n#include<stdlib.h>\n#include<math.h>\n#include <sys/time.h>\n";
+    
     prod_sum_coder(root);
     for(auto it:bounds)
     {
