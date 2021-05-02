@@ -1,0 +1,12 @@
+alpha = 1.5
+beta = 1.2
+
+∀(i) | 0<=i<60 {
+    ∀(j) | 0<=j<80 {
+        temp2 = 0
+        C[i][j] = Σ(alpha *B[i][j] * A[i][k]) | 0<=k<i 
+        temp2 = Σ(B[k][j] * A[i][k]) | 0<=k<i
+        C[i][j] = beta * C[i][j] + alpha * B[i][j] * A[i][i] + alpha * temp2
+    }
+}
+

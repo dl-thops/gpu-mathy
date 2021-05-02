@@ -1,0 +1,23 @@
+∀(x) | 0<=x<1200 {
+    mean_[x] = Σ(data_[k][x]/1400) | 0<=k<1400
+}
+
+∀(i) | 0<=i<1200 {
+    ∀(j) | 0<=j<1200 {
+        cov_[i][j] = Σ(((data_[k][i] - mean_[i])*(data_[k][j] - mean_[j]))/99) | 0<=k<2400
+    }
+}
+
+∀(t) | 0<=t<1200 {
+    std_dev_[t] = Σ(((data_[k][t] - mean_[t])*(data_[k][t] - mean_[t]))/99) | 0<=k<2400
+}
+
+∀(p) | 0<=p<1200 {
+    std_dev_[p] = √(std_dev_[p])
+}
+
+∀(i) | 0<=i<1200 {
+    ∀(j) | 0<=j<1200 {
+        corr[i][j] = cov_[i][j]/(std_dev_[i]*std_dev_[j])
+    }
+}
