@@ -1,10 +1,10 @@
 ∀(x) | 0<=x<2600 {
-    mean[x] = Σ(data[k][x]/3000) | 0<=k<3000
+    mean_[x] = Σ(data_[k][x]/3000) | 0<=k<3000
 }
 
 ∀(i) | 0<=i<2600 {
     ∀(j) | i<=j<2600 {
-        cov[i][j] = Σ(((data[k][i] - mean[i])*(data[k][j] - mean[j]))/2999) | 0<=k<3000
-        cov[j][i] = cov[i][j]
+        cov_[i][j] = Σ(((data_[k][i] - mean_[i])*(data_[k][j] - mean_[j]))/2999) | 0<=k<3000
+        cov_[j][i] = cov_[i][j]
     }
 }

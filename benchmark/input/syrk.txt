@@ -5,6 +5,6 @@ beta = 1.2
         C[i][j] = C[i][j] * beta
     }
     ∀(k) | 0<=k<2000 {
-        C[i][j] = Σ(A[i][k] * A[j][k] * alpha) | 0<=j<=i
+        C[i][k] = Σ(A[i][k] * A[j][k] * alpha) | 0<=j<=i
     }
 }

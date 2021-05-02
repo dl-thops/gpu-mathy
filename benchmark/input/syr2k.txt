@@ -6,6 +6,6 @@ beta = 1.2
         C[i][j] = C[i][j] * beta
     }
     ∀(k) | 0<=k<2000 {
-        C[i][j] = Σ((B[i][k] * A[j][k] * alpha) + (B[j][k] * A[i][k] * alpha)) | 0<=j<=i
+        C[i][k] = Σ((B[i][k] * A[j][k] * alpha) + (B[j][k] * A[i][k] * alpha)) | 0<=j<=i
     }
 }
