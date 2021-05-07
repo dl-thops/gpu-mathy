@@ -7,8 +7,6 @@ The Mathy compiler generates ready-to-run cuda code for commonly used mathematic
 ### Installing Dependencies
 - g++\
     `sudo apt install g++`
-- python3 (Optional, For running benchmarks)\
-    `sudo apt install python3`
 - flex\
     `sudo apt install flex`
 - bison\
