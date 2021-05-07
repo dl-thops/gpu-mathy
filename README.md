@@ -13,11 +13,11 @@ flex
 bison
 `sudo apt install bison`
 
-#### Generating executables
+### Generating executables
 run `make` to generate `./a.out`
 This will generate some intermediate files also.
 
-#### Converting Mathy to Cuda
+### Converting Mathy to Cuda
 If the Mathy code is present in input.txt,
 running `./a.out input.txt output.cu` will create a file output.cu which will contain the equivalent Cuda code.
 The program assumes that all arrays are of type float.
