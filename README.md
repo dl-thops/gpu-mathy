@@ -28,6 +28,6 @@ Run `python3 benchmark.py` to generate the cuda files for mathy text files prese
 The benchmarks have been implemented based on [PolyBench benchmarks](https://web.cse.ohio-state.edu/~pouchet.2/software/polybench/). 
 The results of the output code against the benchmark code have been agglomerated in this [Report](https://github.com/dl-thops/gpu-mathy/tree/main/Report.pdf).
 
-Please refer to the [wiki](https://github.com/dl-thops/gpu-mathy/wiki) for the Grammar and features of the Mathy language.
+Please refer to the [wiki](https://github.com/dl-thops/gpu-mathy/wiki/Mathy-Compiler-Wiki) for the Grammar and features of the Mathy language.
 
 This project was done under the guidance of Prof. [Rupesh Nasre](https://www.cse.iitm.ac.in/~rupesh/)
