@@ -4,11 +4,11 @@
 #include <math.h>
 #include <sys/time.h>
 
-__device__ float A[4002][4002];
-__device__ float x1[4002];
-__device__ float x2[4002];
-__device__ float y_1[4002];
-__device__ float y_2[4002];
+__device__ float A[20002][20002];
+__device__ float x1[20002];
+__device__ float x2[20002];
+__device__ float y_1[20002];
+__device__ float y_2[20002];
 
 __global__ void sumCommMultiBlock(float *a, int n) {
 	int thIdx = threadIdx.x;
@@ -68,15 +68,15 @@ __device__ void prodArray(float* a,int n) {
 
 __global__ void kernel_1(int i,float* temp_1){
 	int j = 0 + blockDim.x * blockIdx.x + threadIdx.x;
-	if( !( 0<=j ) || !( j<=(4000-1) ) )return;
+	if( !( 0<=j ) || !( j<=(20000-1) ) )return;
 	temp_1[j-0] = A[i][j] * y_1[j];
 }
 
 __global__ void kernel_2(){
 	int i = 0 + blockDim.x * blockIdx.x + threadIdx.x;
-	if( !( 0<=i ) || !( i<=(4000-1) ) )return;
-	int thread_count_1 = (4000-1)-0+1;
-	float* temp_1 = (float*)malloc(sizeof(float)*((4000-1)-0+1));
+	if( !( 0<=i ) || !( i<=(20000-1) ) )return;
+	int thread_count_1 = (20000-1)-0+1;
+	float* temp_1 = (float*)malloc(sizeof(float)*((20000-1)-0+1));
 	kernel_1<<<ceil( 1.0 * thread_count_1/1024),1024>>>(i,temp_1);
 	cudaDeviceSynchronize();
 	sumArray( temp_1,thread_count_1);
@@ -86,15 +86,15 @@ __global__ void kernel_2(){
 
 __global__ void kernel_3(int i,float* temp_2){
 	int j = 0 + blockDim.x * blockIdx.x + threadIdx.x;
-	if( !( 0<=j ) || !( j<=(4000-1) ) )return;
+	if( !( 0<=j ) || !( j<=(20000-1) ) )return;
 	temp_2[j-0] = A[j][i] * y_2[j];
 }
 
 __global__ void kernel_4(){
 	int i = 0 + blockDim.x * blockIdx.x + threadIdx.x;
-	if( !( 0<=i ) || !( i<=(4000-1) ) )return;
-	int thread_count_3 = (4000-1)-0+1;
-	float* temp_2 = (float*)malloc(sizeof(float)*((4000-1)-0+1));
+	if( !( 0<=i ) || !( i<=(20000-1) ) )return;
+	int thread_count_3 = (20000-1)-0+1;
+	float* temp_2 = (float*)malloc(sizeof(float)*((20000-1)-0+1));
 	kernel_3<<<ceil( 1.0 * thread_count_3/1024),1024>>>(i,temp_2);
 	cudaDeviceSynchronize();
 	sumArray( temp_2,thread_count_3);
@@ -103,10 +103,10 @@ __global__ void kernel_4(){
 }
 
 __global__ void main_kernel(){
-	int thread_count_2 = (4000-1)-0+1;
+	int thread_count_2 = (20000-1)-0+1;
 	kernel_2<<<ceil( 1.0 * thread_count_2/1024),1024>>>();
 	cudaDeviceSynchronize();
-	int thread_count_4 = (4000-1)-0+1;
+	int thread_count_4 = (20000-1)-0+1;
 	kernel_4<<<ceil( 1.0 * thread_count_4/1024),1024>>>();
 	cudaDeviceSynchronize();
 	return;
@@ -117,16 +117,16 @@ int main(){
 	gettimeofday(&t1, 0);
 	main_kernel<<<1,1>>>();
 	cudaDeviceSynchronize();
-	float* h_A = (float*) malloc(sizeof(float)* (4002)* (4002));
-	cudaMemcpyFromSymbol(h_A,A,sizeof(float)* (4002)* (4002));
-	float* h_x1 = (float*) malloc(sizeof(float)* (4002));
-	cudaMemcpyFromSymbol(h_x1,x1,sizeof(float)* (4002));
-	float* h_x2 = (float*) malloc(sizeof(float)* (4002));
-	cudaMemcpyFromSymbol(h_x2,x2,sizeof(float)* (4002));
-	float* h_y_1 = (float*) malloc(sizeof(float)* (4002));
-	cudaMemcpyFromSymbol(h_y_1,y_1,sizeof(float)* (4002));
-	float* h_y_2 = (float*) malloc(sizeof(float)* (4002));
-	cudaMemcpyFromSymbol(h_y_2,y_2,sizeof(float)* (4002));
+	float* h_A = (float*) malloc(sizeof(float)* (20002)* (20002));
+	cudaMemcpyFromSymbol(h_A,A,sizeof(float)* (20002)* (20002));
+	float* h_x1 = (float*) malloc(sizeof(float)* (20002));
+	cudaMemcpyFromSymbol(h_x1,x1,sizeof(float)* (20002));
+	float* h_x2 = (float*) malloc(sizeof(float)* (20002));
+	cudaMemcpyFromSymbol(h_x2,x2,sizeof(float)* (20002));
+	float* h_y_1 = (float*) malloc(sizeof(float)* (20002));
+	cudaMemcpyFromSymbol(h_y_1,y_1,sizeof(float)* (20002));
+	float* h_y_2 = (float*) malloc(sizeof(float)* (20002));
+	cudaMemcpyFromSymbol(h_y_2,y_2,sizeof(float)* (20002));
 	gettimeofday(&t2, 0);
 	double time = 1.0*(t2.tv_sec-t1.tv_sec) + (t2.tv_usec-t1.tv_usec)/1000000.0;
 	printf("Time taken for execution is: %.8f sec\n", time);

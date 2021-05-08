@@ -6,8 +6,8 @@
 import os
 import subprocess
 
-INPUT_DIRS = ["benchmark/input/small/","benchmark/input/medium/","benchmark/input/large/","benchmark/input/extralarge/","benchmark/input/xxl/"]
-OUTPUT_DIRS = ["benchmark/output/small/","benchmark/output/medium/","benchmark/output/large/","benchmark/output/extralarge/","benchmark/output/xxl/"]
+INPUT_DIRS = ["benchmark/input/small/","benchmark/input/medium/","benchmark/input/large/","benchmark/input/extralarge/"]
+OUTPUT_DIRS = ["benchmark/output/small/","benchmark/output/medium/","benchmark/output/large/","benchmark/output/extralarge/"]
 SRC_DIR = "src/"
 
 # Make executable from source files
