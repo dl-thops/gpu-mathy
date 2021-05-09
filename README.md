@@ -1,6 +1,6 @@
 # GPU Mathy
 
-This repository consists of codes for the Mathy Compiler. This compiler is a part of the CS6023 Course Project.
+This repository consists of codes for the Mathy Compiler. This compiler is a part of the CS6023 Course Project. The Demo for this project is [here](http://gpuproject.dreamcometrue.studio/)
 
 The Mathy compiler generates ready-to-run cuda code for commonly used mathematical expressions like forall, summation, product etc.
 
