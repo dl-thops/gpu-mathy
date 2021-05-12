@@ -669,7 +669,7 @@ void prod_sum_coder(Node *cur){
         cur->code = "int main(){\n";
         cur->code += "struct timeval t1, t2;\n";
         cur->code += "gettimeofday(&t1, 0);\n";
-        cur->code += "cudaDeviceSetLimit( cudaLimitDevRuntimeSyncDepth, 10)";
+        cur->code += "cudaDeviceSetLimit( cudaLimitDevRuntimeSyncDepth, 10);\n";
         cur->code += "main_kernel<<<1,1>>>();\ncudaDeviceSynchronize();\n";
         
         for(auto it:bounds)
