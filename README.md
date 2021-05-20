@@ -29,5 +29,3 @@ The benchmarks have been implemented based on [PolyBench benchmarks](https://web
 The results of the output code against the benchmark code have been agglomerated in this [Report](https://github.com/dl-thops/gpu-mathy/tree/main/Report.pdf).
 
 Please refer to the [wiki](https://github.com/dl-thops/gpu-mathy/wiki#welcome-to-the-gpu-mathy-wiki) for the Grammar and features of the Mathy language.
-
-This project was done under the guidance of Prof. [Rupesh Nasre](https://www.cse.iitm.ac.in/~rupesh/)
